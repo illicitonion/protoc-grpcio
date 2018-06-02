@@ -36,7 +36,7 @@ extern crate grpcio_compiler;
 #[macro_use]
 extern crate failure;
 
-extern crate mktemp;
+extern crate tempfile;
 
 extern crate protobuf;
 extern crate protoc;
@@ -49,8 +49,6 @@ use std::path::{Path, PathBuf};
 use std::vec::Vec;
 
 use failure::ResultExt;
-
-use mktemp::Temp;
 
 use protobuf::{compiler_plugin, descriptor};
 use protoc::{DescriptorSetOutArgs, Protoc};
@@ -217,11 +215,11 @@ where
     let stringified_inputs = stringify_paths(relativized_inputs)?;
     let stringified_includes = stringify_paths(absolutized_includes)?;
 
-    let descriptor_set = Temp::new_file()?;
+    let descriptor_set = tempfile::NamedTempFile::new()?;
 
     protoc
         .write_descriptor_set(DescriptorSetOutArgs {
-            out: match descriptor_set.as_ref().to_str() {
+            out: match descriptor_set.path().to_str() {
                 Some(s) => s,
                 None => bail!("failed to convert descriptor set path to string")
             },
@@ -277,7 +275,7 @@ mod tests {
         let abs_include_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(&rel_include_path);
         for include_path in &[&rel_include_path, &abs_include_path] {
             for inputs in &[vec![input.as_ref()], vec![&include_path.join(&input)]] {
-                let temp_dir = Temp::new_dir().unwrap();
+                let temp_dir = tempfile::tempdir().unwrap();
                 compile_grpc_protos(inputs, &[include_path], &temp_dir).unwrap();
 
                 for output in expected_outputs {
